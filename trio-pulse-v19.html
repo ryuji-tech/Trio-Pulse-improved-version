@@ -1,0 +1,1639 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Trio Pulse</title>
+<style>
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+
+:root {
+  --bg:       #06060e;
+  --stage:    #07071a;
+  --accent:   #3a8fff;
+  --accent2:  #7ac8ff;
+  --muted:    #1a2240;
+  --muted2:   #2a3558;
+  --font:     'Courier New', 'Lucida Console', monospace;
+  --sw: 400px;
+  --sh: 680px;
+}
+
+html, body {
+  width:100%; height:100%;
+  background:var(--bg);
+  display:flex; align-items:center; justify-content:center;
+  font-family:var(--font);
+  overflow:hidden;
+  user-select:none;
+  -webkit-tap-highlight-color:transparent;
+}
+
+#stage {
+  position:relative;
+  width:var(--sw); height:var(--sh);
+  background:var(--stage);
+  border:1px solid var(--muted);
+  overflow:hidden;
+  flex-shrink:0;
+  transform-origin: center center;
+}
+
+#gc { position:absolute; inset:0; width:100%; height:100%; }
+
+/* ── SCREENS ── */
+.scr {
+  position:absolute; inset:0;
+  display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  z-index:20;
+}
+.scr.off { display:none; }
+
+/* ── TITLE ── */
+/* タイトルのみ白ベース・モダンライト */
+#s-title { background: #f5f6fa; }
+
+.logo { display:flex; flex-direction:column; align-items:center; margin-bottom:32px; }
+#t-main {
+  font-size:44px; letter-spacing:10px; color:#1a1a2e;
+  text-transform:uppercase; display:inline-block;
+}
+#t-sub  { font-size:10px; letter-spacing:5px; color:#8899bb; text-transform:uppercase; margin-top:6px; }
+
+.sec-lbl { font-size:10px; letter-spacing:4px; color:#aab; text-transform:uppercase; margin-bottom:10px; }
+
+/* ハイスコア表示 */
+#title-hiscore {
+  font-size:10px; letter-spacing:3px; color:#8899bb;
+  text-transform:uppercase; margin-bottom:16px;
+  text-align:center; line-height:1.8;
+}
+#title-hiscore .hs-val { font-size:16px; color:#3a6fcc; letter-spacing:2px; }
+
+.diff-list { display:flex; flex-direction:column; gap:8px; margin-bottom:22px; }
+.db {
+  width:270px; padding:12px 14px;
+  background:rgba(255,255,255,0.7);
+  border:1px solid #ccd3e8; border-radius:4px;
+  font-family:var(--font); font-size:15px; letter-spacing:5px;
+  color:#4455aa; text-transform:uppercase; cursor:pointer;
+  text-align:center;
+  transition:border-color .15s, color .15s, background .15s, box-shadow .15s;
+}
+@keyframes btnPulse {
+  0%,100% { transform:scale(1);    box-shadow:0 0 6px rgba(58,100,220,.15); }
+  50%      { transform:scale(1.03); box-shadow:0 0 14px rgba(58,100,220,.35); }
+}
+.db:hover {
+  border-color:#3a6fcc; color:#3a6fcc;
+  background:rgba(255,255,255,0.9);
+  animation:btnPulse .7s ease-in-out infinite;
+}
+.db.sel {
+  border-color:#3a6fcc; color:#fff;
+  background:#3a6fcc;
+  box-shadow: 0 0 12px rgba(58,111,204,.4);
+}
+
+#btn-start {
+  width:270px; padding:14px 0;
+  background:#1a1a2e; border:1px solid #1a1a2e; border-radius:4px;
+  font-family:var(--font); font-size:13px; letter-spacing:6px;
+  color:#fff; text-transform:uppercase; cursor:pointer;
+  transition:background .2s, letter-spacing .2s, box-shadow .2s;
+}
+#btn-start:hover {
+  background:#2a2a4e; letter-spacing:8px;
+  box-shadow: 0 4px 16px rgba(26,26,46,.3);
+}
+
+/* タイトル下部アイコン（隠しギミック） */
+#t-guide {
+  position:absolute; bottom:18px; left:50%; transform:translateX(-50%);
+  display:flex; gap:22px;
+}
+.tg {
+  display:flex; flex-direction:column; align-items:center; gap:5px;
+  cursor:pointer; transition:transform .1s;
+}
+.tg:active { transform:scale(.88); }
+.tg-e { font-size:24px; pointer-events:none; }
+.tg-k {
+  width:34px; height:34px;
+  border:1px solid #ccd3e8; border-radius:4px;
+  display:flex; align-items:center; justify-content:center;
+  font-size:14px; font-weight:bold; color:#8899bb;
+  pointer-events:none;
+}
+.tg-n { font-size:9px; letter-spacing:2px; color:#aab; pointer-events:none; }
+
+/* ── COUNTDOWN ── */
+#s-count { background:rgba(6,6,14,.55); gap:8px; }
+#cnt-num { font-size:110px; color:#fff; letter-spacing:2px; line-height:1; }
+#cnt-lbl { font-size:11px; letter-spacing:6px; color:var(--muted2); text-transform:uppercase; }
+
+/* ── HUD ── */
+#hud {
+  position:absolute; top:0; left:0; right:0; height:56px;
+  display:none; align-items:center; justify-content:space-between;
+  padding:0 16px; z-index:5; pointer-events:none;
+  border-bottom:1px solid rgba(26,34,64,.7);
+}
+.hb { display:flex; flex-direction:column; gap:2px; }
+.hl { font-size:8px; letter-spacing:3px; color:var(--muted2); }
+.hv { font-size:16px; color:#aac0ee; letter-spacing:2px; }
+#h-diff { font-size:9px; letter-spacing:3px; color:var(--muted2); text-transform:uppercase; }
+
+/* ── COMBO CENTER ── */
+#combo-center {
+  position:absolute;
+  top:64px; left:50%; transform:translateX(-50%);
+  display:none; flex-direction:column; align-items:center; gap:2px;
+  pointer-events:none; z-index:6;
+}
+#cc-lbl { font-size:11px; letter-spacing:4px; color:var(--muted2); text-transform:uppercase; }
+#cc-val { font-size:30px; font-weight:bold; color:var(--accent2); letter-spacing:2px; line-height:1; }
+
+@keyframes comboPop {
+  0%   { transform:scale(1.7) rotate(-2deg); }
+  50%  { transform:scale(.93) rotate(1deg); }
+  100% { transform:scale(1)   rotate(0deg); }
+}
+.pop { animation:comboPop .25s cubic-bezier(.36,.07,.19,.97) forwards; }
+
+/* ── HUD ── */
+.hl { font-size:11px; letter-spacing:3px; color:var(--muted2); }
+.hv { font-size:17px; color:#aac0ee; letter-spacing:2px; }
+#h-diff { font-size:12px; letter-spacing:3px; color:var(--muted2); text-transform:uppercase; }
+
+/* タイトルへ戻るボタン（HUD内）*/
+#btn-to-title:hover { border-color:#4a8fd4 !important; color:#4a8fd4 !important; }
+
+/* ── TOUCH BAR ── */
+#touch-bar {
+  position:absolute; bottom:0; left:0; right:0; height:110px;
+  display:none; align-items:center; z-index:10;
+  border-top:1px solid var(--muted);
+  background:rgba(7,7,26,.9);
+}
+.tb {
+  flex:1; height:100%;
+  background:transparent; border:none; border-right:1px solid var(--muted);
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:6px; cursor:pointer;
+  transition:background .08s;
+  -webkit-tap-highlight-color:transparent;
+  touch-action:manipulation;
+}
+.tb:last-child { border-right:none; }
+.tb.pressed { background:rgba(58,143,255,.14); }
+.tb-e { font-size:30px; pointer-events:none; }
+.tb-k { font-family:var(--font); font-size:14px; letter-spacing:2px; color:var(--muted2); pointer-events:none; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="gc"></canvas>
+
+  <!-- TITLE -->
+  <div id="s-title" class="scr">
+    <div class="logo">
+      <div id="t-main">TRIO PULSE</div>
+      <div id="t-sub">Rhythm · Janken · Sync</div>
+    </div>
+    <div id="title-hiscore" style="display:none;">
+      <div>HI-SCORE</div>
+      <div class="hs-val" id="hs-val">—</div>
+    </div>
+    <div class="sec-lbl">Select Difficulty</div>
+    <div class="diff-list">
+      <button class="db"     data-d="easy"   data-i="0">EASY</button>
+      <button class="db sel" data-d="normal" data-i="1">NORMAL</button>
+      <button class="db"     data-d="hard"   data-i="2">HARD</button>
+      <button class="db"     data-d="expert" data-i="3">EXPERT</button>
+    </div>
+    <p style="font-size:10px;letter-spacing:2px;color:#8899bb;margin-bottom:6px;text-align:center;">Press Enter key to start</p>
+    <button id="btn-start">▶ SYNC START</button>
+    <div id="t-guide">
+      <div class="tg" data-h="goo">  <div class="tg-e">✊</div><div class="tg-k">A</div><div class="tg-n">グー</div></div>
+      <div class="tg" data-h="choki"><div class="tg-e">✌️</div><div class="tg-k">S</div><div class="tg-n">チョキ</div></div>
+      <div class="tg" data-h="paa"> <div class="tg-e">🖐️</div><div class="tg-k">D</div><div class="tg-n">パー</div></div>
+    </div>
+  </div>
+
+  <!-- COUNTDOWN -->
+  <div id="s-count" class="scr off">
+    <div id="cnt-num">4</div>
+    <div id="cnt-lbl">sync start</div>
+  </div>
+
+  <!-- HUD -->
+  <div id="hud">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <!-- プレイ中タイトルへ戻るボタン -->
+      <button id="btn-to-title" style="
+        background:rgba(58,143,255,.15);
+        border:1px solid #3a8fff; border-radius:4px;
+        font-family:'Courier New',monospace; font-size:13px; letter-spacing:1px;
+        color:#7ac8ff; padding:4px 10px; cursor:pointer;
+        transition:background .15s, box-shadow .15s;
+        box-shadow:0 0 6px rgba(58,143,255,.2);
+        white-space:nowrap;
+      " title="タイトルへ戻る">⌂ TITLE</button>
+      <div class="hb"><span class="hl">SCORE</span><span class="hv" id="h-score">00000000</span></div>
+    </div>
+    <div id="h-diff">NORMAL</div>
+    <div class="hb" style="align-items:flex-end"><span class="hl">BEST</span><span class="hv" id="h-best">—</span></div>
+  </div>
+
+  <!-- HP BAR -->
+  <div id="hp-bar-wrap" style="
+    position:absolute; top:56px; left:0; right:0; height:8px;
+    display:none; z-index:5; pointer-events:none;
+    background:rgba(26,34,64,.6);
+  ">
+    <div id="hp-bar" style="
+      height:100%; width:33%;
+      background:linear-gradient(90deg,#3a8fff,#7ac8ff);
+      transition:width .35s cubic-bezier(.34,1.56,.64,1), background .4s;
+    "></div>
+  </div>
+
+  <!-- COMBO CENTER -->
+  <div id="combo-center">
+    <div id="cc-lbl">COMBO</div>
+    <div id="cc-val">—</div>
+  </div>
+
+  <!-- GAME OVER UI（Canvas上に重ねるHTML層） -->
+  <div id="over-ui" style="
+    display:none; position:absolute; inset:0;
+    align-items:center; justify-content:center;
+    flex-direction:column; gap:14px;
+    z-index:30; pointer-events:auto;
+    padding-top:460px;
+  ">
+    <div style="display:flex; gap:14px;">
+      <button id="btn-retry" style="
+        width:150px; padding:16px 0;
+        background:rgba(58,143,255,.2);
+        border:2px solid #3a8fff; border-radius:6px;
+        font-family:'Courier New',monospace; font-size:15px; letter-spacing:3px;
+        color:#7ac8ff; text-transform:uppercase; cursor:pointer;
+        transition:background .15s, box-shadow .15s;
+        box-shadow:0 0 12px rgba(58,143,255,.4);
+      ">↩ RETRY</button>
+      <button id="btn-title" style="
+        width:150px; padding:16px 0;
+        background:rgba(40,50,80,.5);
+        border:2px solid #3a5080; border-radius:6px;
+        font-family:'Courier New',monospace; font-size:15px; letter-spacing:3px;
+        color:#6688aa; text-transform:uppercase; cursor:pointer;
+        transition:background .15s;
+      ">⌂ TITLE</button>
+    </div>
+  </div>
+
+  <!-- FontAwesome Free SVGアイコン（非表示・Canvas描画用）
+       License: CC BY 4.0 · https://fontawesome.com/license/free -->
+  <svg id="icon-goo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"
+       style="display:none" aria-hidden="true">
+    <path d="M224 180.4V32c0-17.67-14.31-32-32-32S160 14.33 160 32v144h40C208.5 176 216.5 177.7 224 180.4zM128 176V64c0-17.67-14.31-32-32-32S64 46.33 64 64v112.8C66.66 176.5 69.26 176 72 176H128zM288 192c17.69 0 32-14.33 32-32V64c0-17.67-14.31-32-32-32s-32 14.33-32 32v96C256 177.7 270.3 192 288 192zM384 96c-17.69 0-32 14.33-32 32v64c0 17.67 14.31 32 32 32s32-14.34 32-32.02V128C416 110.3 401.7 96 384 96zM350.9 246.2c-12.43-7.648-21.94-19.31-26.88-33.25C313.7 219.9 301.3 223.9 288 223.9c-7.641 0-14.87-1.502-21.66-3.957C269.1 228.6 272 238.1 272 248c0 39.77-32.25 72-72 72H128c-8.836 0-16-7.164-16-16C112 295.2 119.2 288 128 288h72c22.09 0 40-17.91 40-40S222.1 208 200 208h-128C49.91 208 32 225.9 32 248v63.41c0 33.13 16 64.56 42.81 84.13L128 434.2V512h224v-85.09c38.3-24.09 64-66.42 64-114.9V247.1C406.6 252.6 395.7 256 384 256C371.7 256 360.5 252.2 350.9 246.2z"/>
+  </svg>
+  <!-- チョキ：hand-scissors を90度時計回り回転（transform="rotate(90, 256, 256)"） -->
+  <svg id="icon-choki" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"
+       style="display:none" aria-hidden="true">
+    <g transform="rotate(90, 256, 256)">
+      <path d="M40 208c-22.1 0-40 17.9-40 40s17.9 40 40 40l180.2 0c-7.6 8.5-12.2 19.7-12.2 32c0 25.3 19.5 46 44.3 47.9c-7.7 8.5-12.3 19.8-12.3 32.1c0 26.5 21.5 48 48 48l32 0 64 0c70.7 0 128-57.3 128-128l0-113.1c0-40.2-16-78.8-44.4-107.3C444.8 76.8 413.9 64 381.7 64L336 64c-21.3 0-39.3 13.9-45.6 33.1l74.5 23.7c8.4 2.7 13.1 11.7 10.4 20.1s-11.7 13.1-20.1 10.4L288 129.9l0 .1L84 65.8C62.9 59.2 40.5 70.9 33.8 92s5.1 43.5 26.2 50.2L269.5 208 40 208z"/>
+    </g>
+  </svg>
+  <svg id="icon-paa" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"
+       style="display:none" aria-hidden="true">
+    <path d="M288 32c0-17.7-14.3-32-32-32s-32 14.3-32 32l0 208c0 8.8-7.2 16-16 16s-16-7.2-16-16l0-176c0-17.7-14.3-32-32-32s-32 14.3-32 32l0 272c0 1.5 0 3.1 .1 4.6L67.6 283c-16-15.2-41.3-14.6-56.6 1.4s-14.6 41.3 1.4 56.6L124.8 448c43.1 41.1 100.4 64 160 64l19.2 0c97.2 0 176-78.8 176-176l0-208c0-17.7-14.3-32-32-32s-32 14.3-32 32l0 112c0 8.8-7.2 16-16 16s-16-7.2-16-16l0-160c0-17.7-14.3-32-32-32s-32 14.3-32 32l0 160c0 8.8-7.2 16-16 16s-16-7.2-16-16l0-208z"/>
+  </svg>
+  <div id="touch-bar">
+    <button class="tb" data-h="goo">  <div class="tb-e">✊</div><div class="tb-k">A / グー</div></button>
+    <button class="tb" data-h="choki"><div class="tb-e">✌️</div><div class="tb-k">S / チョキ</div></button>
+    <button class="tb" data-h="paa"> <div class="tb-e">🖐️</div><div class="tb-k">D / パー</div></button>
+  </div>
+</div>
+
+<script>
+// ================================================================
+//  CONFIG
+// ================================================================
+const SW = 400, SH = 680;
+
+// じゃんけん
+const HANDS = ['goo','choki','paa'];
+const EMOJI = { goo:'✊', choki:'✌️', paa:'🖐️' };
+const LABEL = { goo:'グー', choki:'チョキ', paa:'パー' };
+const WINS  = { choki:'goo', goo:'paa', paa:'choki' };
+const LOSES = { goo:'choki', paa:'goo', choki:'paa' };
+function jk(p,e){ return WINS[e]===p?'WIN':p===e?'DRAW':'LOSE'; }
+
+// ノーツの「消失点」と「判定点」
+// 奥行き表現：消失点(VP)から判定ライン(JUDGE_Y)へスケールが拡大
+const VP_X   = SW / 2;   // 消失点X（中央）
+const VP_Y   = 160;      // 消失点Y（画面上部）
+const JUDGE_X = SW / 2;
+const JUDGE_Y = SH - 170; // タッチバー上端
+
+// ノーツのスケール: 奥(0.04) → 手前(1.8) ← 極端な差・モバイルでも圧迫感
+const SCALE_FAR  = 0.04;
+const SCALE_NEAR = 1.8;
+const BASE_RADIUS = 30; // 判定ラインでの基本半径（×1.8で実効54px）
+
+// 難易度
+// NORMAL以降はBPM固定
+const FIXED_BPM = 120;
+const DIFF_CFG = {
+  easy:   { bpm:95,        hint:true,  rules:['win'],              density:2, label:'EASY',   mult:1.0 },
+  normal: { bpm:FIXED_BPM, hint:false, rules:['win'],              density:2, label:'NORMAL', mult:1.5 },
+  hard:   { bpm:FIXED_BPM, hint:false, rules:['win','draw'],       density:2, label:'HARD',   mult:2.0 },
+  expert: { bpm:FIXED_BPM, hint:false, rules:['win','draw','lose'],density:2, label:'EXPERT', mult:3.0 },
+};
+
+// 敵が何拍かけて到達するか
+const TOTAL_BEATS = 8;
+
+// 判定窓（気持ちよさ優先）
+const W_PERFECT = 160;  // ms（少し広げる）
+const W_GOOD    = 320;  // ms（LATE廃止・GOODに統合）
+
+// ================================================================
+//  CANVAS
+// ================================================================
+const canvas = document.getElementById('gc');
+const ctx    = canvas.getContext('2d');
+canvas.width = SW; canvas.height = SH;
+
+// ================================================================
+//  AUDIO
+// ================================================================
+let AC = null;
+function initAudio(){
+  if(AC) return;
+  AC = new (window.AudioContext||window.webkitAudioContext)();
+}
+function tone(freq,vol,dur,type='sine',when=0){
+  if(!AC) return;
+  const t=AC.currentTime+when;
+  const o=AC.createOscillator(), g=AC.createGain();
+  o.type=type; o.frequency.value=freq;
+  g.gain.setValueAtTime(vol,t);
+  g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+  o.connect(g); g.connect(AC.destination);
+  o.start(t); o.stop(t+dur);
+}
+// ドラム風ビート音
+function sndMetro(strong){
+  if(!AC) return;
+  if(strong){
+    // キック：低周波バースト
+    const o=AC.createOscillator(), g=AC.createGain();
+    o.type='sine'; o.frequency.setValueAtTime(150,AC.currentTime);
+    o.frequency.exponentialRampToValueAtTime(40,AC.currentTime+.08);
+    g.gain.setValueAtTime(.4,AC.currentTime);
+    g.gain.exponentialRampToValueAtTime(.0001,AC.currentTime+.12);
+    o.connect(g); g.connect(AC.destination); o.start(); o.stop(AC.currentTime+.12);
+  } else {
+    // スネア：ノイズ風（矩形波の短いバースト）
+    const o=AC.createOscillator(), g=AC.createGain();
+    o.type='square'; o.frequency.value=180;
+    g.gain.setValueAtTime(.12,AC.currentTime);
+    g.gain.exponentialRampToValueAtTime(.0001,AC.currentTime+.06);
+    o.connect(g); g.connect(AC.destination); o.start(); o.stop(AC.currentTime+.06);
+  }
+}
+// 入力時の即時フィードバック音（手ごとに軽い音）
+function sndInput(hand){
+  // 押した瞬間の「反応音」：軽めに手ごとに差をつける
+  const m={
+    goo:  {f:110, v:.18, d:.09, t:'sawtooth'},
+    choki:{f:800, v:.12, d:.04, t:'square'},
+    paa:  {f:300, v:.15, d:.12, t:'sine'},
+  };
+  const c=m[hand]; tone(c.f,c.v,c.d,c.t);
+}
+
+// 判定結果音（判定結果ベース・演奏感重視）
+function sndResult(label){
+  switch(label){
+    case 'PERFECT':
+      // 明るく気持ちいい和音
+      tone(880, .3, .18, 'sine');
+      tone(1320,.15, .14, 'sine');
+      break;
+    case 'GOOD':
+      tone(660, .25, .16, 'sine');
+      break;
+    case 'WRONG':
+      // 低くこもった音
+      tone(180, .25, .22, 'sawtooth');
+      break;
+    case 'MISS':
+      tone(140, .18, .18, 'sine');
+      break;
+  }
+}
+function sndCombo(c){
+  // 5コンボごとに何かを鳴らす（〜50は5刻み、50以降は10刻み）
+  const milestone = c <= 50 ? (c % 5 === 0) : (c % 10 === 0);
+  if(!milestone) return;
+
+  if     (c >= 100) { tone(880,.12,.6,'sine'); tone(1320,.08,.5,'sine'); tone(660,.06,.7,'triangle'); }
+  else if(c >= 50)  { tone(880,.1,.5,'sine');  tone(660,.07,.5,'triangle'); }
+  else if(c >= 30)  { tone(880,.08,.5,'sine');  tone(440,.06,.6,'triangle'); tone(220,.05,.7,'sine'); }
+  else if(c >= 20)  { tone(880,.07,.5,'sine');  tone(440,.05,.6,'triangle'); }
+  else if(c >= 10)  { tone(880,.06,.5,'sine'); }
+  else if(c >= 5)   { tone(660,.04,.25,'sine'); }
+}
+// タイトル隠しギミック用
+function sndSecret(hand){
+  const m={goo:{f:120,v:.2,d:.2,t:'sawtooth'},choki:{f:800,v:.15,d:.1,t:'square'},paa:{f:320,v:.18,d:.25,t:'sine'}};
+  const c=m[hand]; tone(c.f,c.v,c.d,c.t);
+}
+
+// ================================================================
+//  HAND ICONS — Path2D方式（Blob不使用・確実に動作）
+//  FontAwesome Free 6.x · CC BY 4.0
+//  各アイコンは viewBox基準の座標。描画時にtranslate+scaleで配置する
+// ================================================================
+
+// GUU (hand-fist) viewBox 0 0 448 512
+const PATH_GOO = new Path2D('M224 180.4V32c0-17.67-14.31-32-32-32S160 14.33 160 32v144h40C208.5 176 216.5 177.7 224 180.4zM128 176V64c0-17.67-14.31-32-32-32S64 46.33 64 64v112.8C66.66 176.5 69.26 176 72 176H128zM288 192c17.69 0 32-14.33 32-32V64c0-17.67-14.31-32-32-32s-32 14.33-32 32v96C256 177.7 270.3 192 288 192zM384 96c-17.69 0-32 14.33-32 32v64c0 17.67 14.31 32 32 32s32-14.34 32-32.02V128C416 110.3 401.7 96 384 96zM350.9 246.2c-12.43-7.648-21.94-19.31-26.88-33.25C313.7 219.9 301.3 223.9 288 223.9c-7.641 0-14.87-1.502-21.66-3.957C269.1 228.6 272 238.1 272 248c0 39.77-32.25 72-72 72H128c-8.836 0-16-7.164-16-16C112 295.2 119.2 288 128 288h72c22.09 0 40-17.91 40-40S222.1 208 200 208h-128C49.91 208 32 225.9 32 248v63.41c0 33.13 16 64.56 42.81 84.13L128 434.2V512h224v-85.09c38.3-24.09 64-66.42 64-114.9V247.1C406.6 252.6 395.7 256 384 256C371.7 256 360.5 252.2 350.9 246.2z');
+
+// CHOKI (hand-scissors) viewBox 0 0 512 512 · 90度回転済み
+// 元のパスを translate+rotate で90度CW回転: (x,y)→(512-y, x)
+// Path2Dはtransformで回転できるのでMatrixを使う
+const PATH_CHOKI_BASE = new Path2D('M40 208c-22.1 0-40 17.9-40 40s17.9 40 40 40l180.2 0c-7.6 8.5-12.2 19.7-12.2 32c0 25.3 19.5 46 44.3 47.9c-7.7 8.5-12.3 19.8-12.3 32.1c0 26.5 21.5 48 48 48l32 0 64 0c70.7 0 128-57.3 128-128l0-113.1c0-40.2-16-78.8-44.4-107.3C444.8 76.8 413.9 64 381.7 64L336 64c-21.3 0-39.3 13.9-45.6 33.1l74.5 23.7c8.4 2.7 13.1 11.7 10.4 20.1s-11.7 13.1-20.1 10.4L288 129.9l0 .1L84 65.8C62.9 59.2 40.5 70.9 33.8 92s5.1 43.5 26.2 50.2L269.5 208 40 208z');
+
+// PAA (hand) viewBox 0 0 512 512
+const PATH_PAA = new Path2D('M288 32c0-17.7-14.3-32-32-32s-32 14.3-32 32l0 208c0 8.8-7.2 16-16 16s-16-7.2-16-16l0-176c0-17.7-14.3-32-32-32s-32 14.3-32 32l0 272c0 1.5 0 3.1 .1 4.6L67.6 283c-16-15.2-41.3-14.6-56.6 1.4s-14.6 41.3 1.4 56.6L124.8 448c43.1 41.1 100.4 64 160 64l19.2 0c97.2 0 176-78.8 176-176l0-208c0-17.7-14.3-32-32-32s-32 14.3-32 32l0 112c0 8.8-7.2 16-16 16s-16-7.2-16-16l0-160c0-17.7-14.3-32-32-32s-32 14.3-32 32l0 160c0 8.8-7.2 16-16 16s-16-7.2-16-16l0-208z');
+
+// アイコン情報（viewBoxサイズ・チョキの回転オフセット）
+const ICON_DEF = {
+  goo:   { path: PATH_GOO,        vw:448, vh:512, rotate: 0   },
+  choki: { path: PATH_CHOKI_BASE, vw:512, vh:512, rotate: 90  }, // 90度CW
+  paa:   { path: PATH_PAA,        vw:512, vh:512, rotate: 0   },
+};
+
+/**
+ * Canvasにじゃんけんアイコンを描画
+ * @param {string} hand    'goo' | 'choki' | 'paa'
+ * @param {number} cx      中心X
+ * @param {number} cy      中心Y
+ * @param {number} size    描画サイズ（正方形の一辺）
+ * @param {number[]} color [r,g,b]
+ * @param {number} alpha   透明度 0〜1
+ */
+function drawHandIcon(hand, cx, cy, size, color, alpha){
+  const def = ICON_DEF[hand];
+  if(!def) return;
+
+  ctx.save();
+  ctx.globalAlpha = alpha;
+
+  const scaleX = size / def.vw;
+  const scaleY = size / def.vh;
+
+  // ── 影（立体感・少し下にオフセット）──
+  ctx.save();
+  ctx.globalAlpha = alpha * 0.35;
+  ctx.fillStyle = `rgba(0,0,0,0.8)`;
+  if(def.rotate === 90){
+    ctx.translate(cx + size*0.04, cy + size*0.06);
+    ctx.rotate(Math.PI / 2);
+    ctx.scale(scaleX, scaleY);
+    ctx.translate(-def.vw/2, -def.vh/2);
+  } else {
+    ctx.translate(cx - size/2 + size*0.04, cy - size/2 + size*0.06);
+    ctx.scale(scaleX, scaleY);
+  }
+  ctx.fill(def.path);
+  ctx.restore();
+
+  // ── 本体（グラデーション：上が明るく、下がやや暗い）──
+  ctx.save();
+  ctx.globalAlpha = alpha;
+
+  // グラデーション（暗め・上から下へ）
+  const grad = ctx.createLinearGradient(cx, cy - size*0.5, cx, cy + size*0.5);
+  // 上：テーマカラーより少し明るく（+30）
+  // 下：テーマカラーより暗く（-60）→ 立体感
+  grad.addColorStop(0,   `rgba(${Math.min(255,color[0]+30)},${Math.min(255,color[1]+30)},${Math.min(255,color[2]+40)},1)`);
+  grad.addColorStop(0.5, `rgba(${color[0]},${color[1]},${color[2]},1)`);
+  grad.addColorStop(1,   `rgba(${Math.max(0,color[0]-60)},${Math.max(0,color[1]-60)},${Math.max(0,color[2]-50)},1)`);
+  ctx.fillStyle = grad;
+
+  if(def.rotate === 90){
+    ctx.translate(cx, cy);
+    ctx.rotate(Math.PI / 2);
+    ctx.scale(scaleX, scaleY);
+    ctx.translate(-def.vw/2, -def.vh/2);
+  } else {
+    ctx.translate(cx - size/2, cy - size/2);
+    ctx.scale(scaleX, scaleY);
+  }
+  ctx.fill(def.path);
+  ctx.restore();
+
+  ctx.restore();
+}
+
+// ================================================================
+//  STATE
+// ================================================================
+let mode      = 'title';
+let diff      = 'normal'; // 初期選択をNORMALに
+let score     = 0;
+let combo     = 0;
+let maxCombo  = 0;
+let beat      = 0;
+let beatMs    = 500;
+let lastBeat  = 0;
+let beatTimer = null;
+let titlePhase = 0;
+
+// 体力ゲージ
+const HP_MAX  = 100;
+let   hp      = HP_MAX * 0.33; // 初期体力は1/3
+
+// ハイスコア
+let hiScore   = 0;
+
+let enemies      = [];
+let effects      = [];
+let sparks       = [];
+let ripples      = [];
+let titleRipples = []; // タイトル画面の隠しギミック波紋
+
+// ================================================================
+//  DEPTH UTILS
+// ================================================================
+// progress: 0(遠) → 1(近)
+// スケールと座標を計算
+function depthScale(progress){
+  return SCALE_FAR + (SCALE_NEAR - SCALE_FAR) * progress;
+}
+function depthPos(progress){
+  // 消失点(VP_X, VP_Y)から判定点(JUDGE_X, JUDGE_Y)へ線形補間
+  return {
+    x: VP_X  + (JUDGE_X - VP_X)  * progress,
+    y: VP_Y  + (JUDGE_Y - VP_Y)  * progress,
+  };
+}
+
+// ================================================================
+//  BEAT ENGINE
+// ================================================================
+function startBeat(ms){
+  beatMs   = ms;
+  beat     = 0;
+  lastBeat = performance.now();
+  // 最初の1拍は少し遅延させてAudioContextを安定させる（途切れ感の軽減）
+  setTimeout(()=>{
+    if(mode !== 'play') return;
+    onBeat();
+    beatTimer = setInterval(onBeat, beatMs);
+  }, 80);
+}
+function stopBeat(){ clearInterval(beatTimer); beatTimer=null; }
+
+// 連拍ギミック管理
+let burstCount    = 0;  // 今の連拍の残り数
+let burstCooldown = 0;  // 連拍後の休符カウント
+
+function onBeat(){
+  lastBeat = performance.now();
+  beat++;
+  sndMetro(beat%4===1);
+
+  // beat=1,2は準備拍（スポーンなし）
+  if(beat < 3){
+    enemies.forEach(e=>{ e.step++; e.progress = e.step/e.total; });
+    // 準備拍でも到達した敵は1体ずつ個別判定
+    const nowFb = performance.now();
+    const arrivedFb  = enemies.filter(e => e.progress >= 1);
+    const remainFb   = enemies.filter(e => e.progress < 1);
+    arrivedFb.forEach(e => judgeAtLine(e, nowFb));
+    enemies = remainFb;
+    return;
+  }
+
+  // ── 連拍ギミック制御 ──
+  // 通常: 2拍おきにスポーン（奇数拍）
+  // 連拍: burstCount が残っている間は毎拍スポーン
+  let shouldSpawn = false;
+
+  if(burstCooldown > 0){
+    // 休符期間：スポーンなし
+    burstCooldown--;
+  } else if(burstCount > 0){
+    // 連拍中：毎拍スポーン
+    shouldSpawn = true;
+    burstCount--;
+    if(burstCount === 0) burstCooldown = 3; // 連拍後3拍休符
+  } else {
+    // 通常: 奇数拍でスポーン
+    if(beat % 2 === 1){
+      shouldSpawn = true;
+      // 10%の確率で連拍を予約（2〜4連）
+      if(Math.random() < 0.1){
+        burstCount = Math.floor(Math.random()*3) + 1; // 1〜3（直後から追加で1〜3連）
+        burstCooldown = 0;
+      }
+    }
+  }
+
+  if(shouldSpawn) spawnEnemy();
+
+  // 全敵を1拍進める
+  enemies.forEach(e=>{
+    e.step++;
+    e.progress = e.step / e.total;
+  });
+
+  // 到達した敵を1体ずつ個別判定（他の敵を巻き込まない）
+  const now      = performance.now();
+  const arrived  = enemies.filter(e => e.progress >= 1);
+  const remaining = enemies.filter(e => e.progress < 1);
+  arrived.forEach(e => judgeAtLine(e, now));
+  enemies = remaining;
+}
+
+// ================================================================
+//  ENEMY
+// ================================================================
+function spawnEnemy(){
+  const cfg  = DIFF_CFG[diff];
+  const hand = HANDS[Math.floor(Math.random()*3)];
+  const rule = cfg.rules[Math.floor(Math.random()*cfg.rules.length)];
+  enemies.push({
+    id:       Math.random(),
+    hand, rule,
+    step:     0,
+    total:    TOTAL_BEATS,
+    progress: 0,        // 0(遠) → 1(近)
+    inputHand: null,
+    inputTime: null,
+    locked:   false,
+  });
+}
+
+// ================================================================
+//  INPUT（キーボード＋タッチ共通）
+// ================================================================
+function handleInput(hand){
+  if(mode!=='play') return;
+  sndInput(hand);
+
+  const now = performance.now();
+  addRipple(JUDGE_X, JUDGE_Y, hand);
+
+  // 判定ライン方向に最も近い未ロック敵を照合（progress > 0.35 に緩和）
+  const sorted = enemies.slice().sort((a,b)=>b.progress - a.progress);
+  const target = sorted.find(e => !e.locked && e.progress > 0.35);
+  if(target){
+    target.inputHand = hand;
+    target.inputTime = now;
+    target.locked    = true;
+    // 即時判定：LATE廃止・W_GOOD以内はすべてGOOD
+    const timeDiff = Math.abs(now - lastBeat);
+    const timing   = timeDiff < W_PERFECT ? 'PERFECT' : 'GOOD';
+    resolveJudge(target, timing);
+    enemies = enemies.filter(e=>e.id !== target.id);
+  }
+}
+
+// キーボード
+const KMAP = {a:'goo',s:'choki',d:'paa'};
+document.addEventListener('keydown',e=>{
+  if(e.repeat) return;
+  const h = KMAP[e.key.toLowerCase()];
+  if(h) handleInput(h);
+});
+
+// タッチボタン（play・over・secretを1つのハンドラで処理）
+document.querySelectorAll('.tb').forEach(btn=>{
+  btn.addEventListener('pointerdown',e=>{
+    e.preventDefault();
+    btn.classList.add('pressed');
+    if(mode === 'play'){
+      handleInput(btn.dataset.h);
+    } else if(mode === 'over' || mode === 'secret'){
+      hideOverUI();
+      const cfg = DIFF_CFG[diff];
+      startPlayFresh(60000/cfg.bpm);
+    }
+  });
+  btn.addEventListener('pointerup',   ()=>btn.classList.remove('pressed'));
+  btn.addEventListener('pointerleave',()=>btn.classList.remove('pressed'));
+});
+
+// タイトル隠しギミック（クリック）
+document.querySelectorAll('.tg').forEach(icon=>{
+  icon.addEventListener('pointerdown',e=>{
+    e.preventDefault();
+    initAudio();
+    fireSecret(icon.dataset.h, icon);
+  });
+});
+
+// タイトル隠しギミック（A/S/Dキー） ← NEW
+document.addEventListener('keydown',e=>{
+  if(mode!=='title') return;
+  const h = KMAP[e.key.toLowerCase()];
+  if(!h) return;
+  initAudio();
+  // 対応アイコンを取得して発光させる
+  const icon = document.querySelector(`.tg[data-h="${h}"]`);
+  fireSecret(h, icon);
+});
+
+function fireSecret(hand, iconEl){
+  sndSecret(hand);
+  if(!iconEl) return;
+  iconEl.style.filter='brightness(2.5) drop-shadow(0 0 6px #7ac8ff)';
+  // Canvas上に小さな波紋を出す（タイトル画面中のCanvasへ）
+  titleRipples.push({ x: JUDGE_X, y: JUDGE_Y, r:4, color: {goo:'rgba(255,120,80,.9)',choki:'rgba(80,220,120,.9)',paa:'rgba(80,150,255,.9)'}[hand], life:1 });
+  setTimeout(()=>iconEl.style.filter='',220);
+}
+
+// ================================================================
+//  JUDGE
+// ================================================================
+function resolveJudge(enemy, timing){
+  const result = jk(enemy.inputHand, enemy.hand);
+  const cfg    = DIFF_CFG[diff];
+  const ok = (enemy.rule==='win'  && result==='WIN')
+          || (enemy.rule==='draw' && result==='DRAW')
+          || (enemy.rule==='lose' && result==='LOSE');
+
+  if(ok){
+    // スコア：判定 × 難易度倍率 × コンボボーナス
+    const basePts = timing==='PERFECT' ? 300 : 200; // PERFECT or GOOD
+    score += Math.floor(basePts * cfg.mult * (Math.floor(combo/5)+1));
+    combo++;
+    maxCombo = Math.max(maxCombo, combo);
+    hp = Math.min(HP_MAX, hp + 3);
+    sndResult(timing); // PERFECT or GOOD
+    sndCombo(combo);
+    if(combo === 999) { triggerSecretClear(); return; }
+    const col = timing==='PERFECT'?'#7ac8ff':'#5599dd';
+    addFx(JUDGE_X, JUDGE_Y-44, timing, col);
+    addBurst(JUDGE_X, JUDGE_Y, timing==='PERFECT'?'#3a8fff':'#4477aa', timing==='PERFECT'?20:10);
+  } else {
+    combo = 0;
+    hp = Math.max(0, hp - 20); // ミスでHP減少
+    sndResult('WRONG');
+    addFx(JUDGE_X, JUDGE_Y-44, 'WRONG', '#ff4060');
+    addBurst(JUDGE_X, JUDGE_Y, '#cc2233', 6);
+    if(hp <= 0) triggerGameOver();
+  }
+  updateHUD();
+  updateComboUI();
+}
+
+// 拍到達時にまだ入力がない敵 → MISS（その敵だけ処理、他は消えない）
+function judgeAtLine(enemy, now){
+  if(!enemy.inputHand){
+    combo = 0;
+    hp = Math.max(0, hp - 15);
+    sndResult('MISS');
+    addFx(JUDGE_X, JUDGE_Y-44, 'MISS', 'rgba(60,80,130,0.9)');
+    if(hp <= 0) triggerGameOver();
+    updateHUD();
+    updateComboUI();
+    // ※ enemies配列の他の敵には一切触れない
+  }
+  // inputHandがある場合はhandleInput側で解決済み
+}
+
+// ゲームオーバー処理
+function triggerGameOver(){
+  stopBeat();
+  if(score > hiScore) hiScore = score;
+  mode = 'over';
+  showOverUI();
+}
+
+// 999コンボ裏クリア
+function triggerSecretClear(){
+  stopBeat();
+  if(score > hiScore) hiScore = score;
+  mode = 'secret';
+}
+
+// ================================================================
+//  UI UPDATE
+// ================================================================
+function updateHUD(){
+  document.getElementById('h-score').textContent = String(score).padStart(8,'0');
+  document.getElementById('h-best').textContent  = maxCombo>0?`×${maxCombo}`:'—';
+  // HPバー更新
+  const bar = document.getElementById('hp-bar');
+  const pct = Math.max(0, hp / HP_MAX * 100);
+  bar.style.width = pct + '%';
+  // HP低下で赤くなる
+  bar.style.background = hp < 30
+    ? `linear-gradient(90deg,#ff2040,#ff6060)`
+    : hp < 60
+    ? `linear-gradient(90deg,#ff8020,#ffb060)`
+    : `linear-gradient(90deg,#3a8fff,#7ac8ff)`;
+}
+function updateComboUI(){
+  const el  = document.getElementById('cc-val');
+  const cc  = document.getElementById('combo-center');
+  el.textContent = combo>0 ? `×${combo}` : '—';
+
+  if(combo >= 100){
+    el.style.color      = '#fff';
+    el.style.fontSize   = '58px';
+    el.style.textShadow = '0 0 20px #fff,0 0 40px #ffee88,0 0 80px #ffaa00';
+    cc.style.filter     = 'drop-shadow(0 0 12px rgba(255,220,100,0.9))';
+  } else if(combo >= 50){
+    el.style.color      = '#ffeebb';
+    el.style.fontSize   = '52px';
+    el.style.textShadow = '0 0 18px #ffcc44,0 0 36px #ff8800';
+    cc.style.filter     = 'drop-shadow(0 0 10px rgba(255,180,60,0.8))';
+  } else if(combo >= 30){
+    el.style.color      = '#fff';
+    el.style.fontSize   = '50px';
+    el.style.textShadow = '0 0 20px #fff,0 0 40px #7ac8ff,0 0 60px #3a8fff';
+    cc.style.filter     = 'drop-shadow(0 0 8px rgba(120,200,255,0.8))';
+  } else if(combo >= 25){
+    el.style.color      = '#ffdd88';
+    el.style.fontSize   = '47px';
+    el.style.textShadow = '0 0 16px #ffcc44,0 0 32px #ff9900';
+    cc.style.filter     = 'drop-shadow(0 0 7px rgba(255,200,80,0.7))';
+  } else if(combo >= 20){
+    el.style.color      = '#ffcc66';
+    el.style.fontSize   = '44px';
+    el.style.textShadow = '0 0 14px #ffaa33,0 0 28px #ff8800';
+    cc.style.filter     = 'drop-shadow(0 0 5px rgba(255,180,60,0.6))';
+  } else if(combo >= 15){
+    el.style.color      = '#99ddff';
+    el.style.fontSize   = '41px';
+    el.style.textShadow = '0 0 12px #66ccff,0 0 24px #3399ff';
+    cc.style.filter     = 'drop-shadow(0 0 5px rgba(100,200,255,0.6))';
+  } else if(combo >= 10){
+    el.style.color      = '#7ac8ff';
+    el.style.fontSize   = '38px';
+    el.style.textShadow = '0 0 10px #4af,0 0 20px #3a8fff';
+    cc.style.filter     = 'drop-shadow(0 0 4px rgba(100,180,255,0.5))';
+  } else if(combo >= 5){
+    el.style.color      = '#88d4ff';
+    el.style.fontSize   = '34px';
+    el.style.textShadow = '0 0 8px rgba(100,200,255,0.6)';
+    cc.style.filter     = 'drop-shadow(0 0 3px rgba(80,160,255,0.4))';
+  } else {
+    el.style.color      = combo>0 ? '#5a8ab0' : '#2a3558';
+    el.style.fontSize   = '28px';
+    el.style.textShadow = '';
+    cc.style.filter     = '';
+  }
+
+  el.classList.remove('pop');
+  void el.offsetWidth;
+  if(combo>0) el.classList.add('pop');
+}
+
+// ================================================================
+//  EFFECTS
+// ================================================================
+function addFx(x,y,text,color){
+  effects.push({x,y,text,color,life:1,vy:-1.0});
+}
+function addBurst(x,y,color,n){
+  for(let i=0;i<n;i++){
+    const a=(Math.PI*2/n)*i+Math.random()*.5;
+    const s=1.5+Math.random()*3.5;
+    sparks.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-1.2,color,size:1.5+Math.random()*2.5,life:1});
+  }
+}
+function addRipple(x,y,hand){
+  const col={goo:'rgba(255,100,80,.8)',choki:'rgba(80,220,120,.8)',paa:'rgba(80,150,255,.8)'};
+  ripples.push({x,y,r:6,color:col[hand],life:1});
+}
+
+// ================================================================
+//  DRAW — TITLE
+// ================================================================
+function drawTitle(){
+  titlePhase += .006;
+  // p: 0→1→0の滑らかな波（メニューの脈動に使う）
+  const p = .5+.5*Math.sin(titlePhase*Math.PI*2);
+  // heartbeat: 心臓の鼓動風（0.3秒の速いパルス + 間隔）
+  const hbCycle = (titlePhase * 1.2) % 1; // 速め
+  const hb = hbCycle < .15 ? Math.sin(hbCycle/0.15*Math.PI) :
+             hbCycle < .28 ? Math.sin((hbCycle-.15)/.13*Math.PI)*.4 : 0;
+
+  ctx.clearRect(0,0,SW,SH);
+
+  // 白ベース背景（タイトル画面はCSS側で#f5f6faだが、Canvasも合わせる）
+  ctx.fillStyle = '#f5f6fa';
+  ctx.fillRect(0,0,SW,SH);
+
+  // 背景グリッド（パース風・薄いグレー）
+  ctx.strokeStyle=`rgba(180,190,220,${.3+.1*p})`;
+  ctx.lineWidth=.5;
+  const lines=10;
+  for(let i=0;i<=lines;i++){
+    const bx=(SW/lines)*i;
+    ctx.beginPath();ctx.moveTo(bx,SH);ctx.lineTo(VP_X,VP_Y);ctx.stroke();
+  }
+  for(let row=1;row<=7;row++){
+    const t=row/8;
+    const pos=depthPos(t);
+    const halfW=(SW/2-4)*t+4;
+    ctx.strokeStyle=`rgba(180,190,220,${(.15+.08*p)*t})`;
+    ctx.beginPath();ctx.moveTo(pos.x-halfW,pos.y);ctx.lineTo(pos.x+halfW,pos.y);ctx.stroke();
+  }
+
+  // 奥行きレーン（薄い青）
+  const lg=ctx.createLinearGradient(VP_X,VP_Y,JUDGE_X,JUDGE_Y);
+  lg.addColorStop(0,'rgba(58,100,220,0)');
+  lg.addColorStop(1,`rgba(58,100,220,${.04+.03*p})`);
+  ctx.fillStyle=lg;
+  ctx.beginPath();
+  ctx.moveTo(VP_X-2,VP_Y);
+  ctx.lineTo(JUDGE_X-70,JUDGE_Y);
+  ctx.lineTo(JUDGE_X+70,JUDGE_Y);
+  ctx.lineTo(VP_X+2,VP_Y);
+  ctx.closePath(); ctx.fill();
+
+  // デモノーツ（SVGアイコン使用・白背景向けに濃い青）
+  const demoHands = ['goo','choki','paa'];
+  for(let i=0;i<3;i++){
+    const t=((titlePhase*.08+i/3)%1);
+    const pos   = depthPos(t);
+    const sc    = depthScale(t);
+    const r     = BASE_RADIUS * sc;
+    const alpha = .08 + .25*t;
+    const iconSize = Math.max(14, r*2.2);
+    drawHandIcon(demoHands[i], pos.x, pos.y, iconSize, [40,80,200], alpha);
+  }
+
+  // 判定ライン（白背景なので濃い青）
+  ctx.strokeStyle=`rgba(40,80,200,${.2+.12*p})`;
+  ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.moveTo(JUDGE_X-80,JUDGE_Y);ctx.lineTo(JUDGE_X+80,JUDGE_Y);ctx.stroke();
+  ctx.fillStyle=`rgba(40,80,200,${.35+.2*p})`;
+  ctx.beginPath();ctx.arc(JUDGE_X,JUDGE_Y,3+2*p,0,Math.PI*2);ctx.fill();
+
+  // タイトル波紋（隠しギミック）
+  titleRipples.forEach(r=>{
+    ctx.save(); ctx.globalAlpha=r.life*.7;
+    ctx.strokeStyle=r.color; ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.arc(r.x,r.y,r.r,0,Math.PI*2);ctx.stroke();
+    ctx.restore();
+    r.r += (100-r.r)*.12; r.life -= .04;
+  });
+  titleRipples = titleRipples.filter(r=>r.life>0);
+
+  // ── タイトル文字の拍動（心臓の鼓動風）──
+  const tMain = document.getElementById('t-main');
+  const heartScale = 1 + hb * 0.04;
+  tMain.style.transform  = `scale(${heartScale})`;
+  // GAME OVERと同系統の大きな発光演出（色は現状の濃紺を維持）
+  const glowSize  = 12 + 20*p + 28*hb;
+  const glowAlpha = 0.25 + 0.25*p + 0.3*hb;
+  tMain.style.textShadow = [
+    `0 0 ${glowSize}px rgba(58,100,220,${glowAlpha})`,
+    `0 0 ${glowSize*1.8}px rgba(40,80,180,${glowAlpha*0.6})`,
+    `0 0 ${glowSize*3}px rgba(20,50,140,${glowAlpha*0.3})`,
+  ].join(',');
+
+  document.getElementById('btn-start').style.boxShadow=
+    `0 4px ${12+8*p}px rgba(26,26,46,${.2+.15*p})`;
+}
+
+// ================================================================
+//  DRAW — COUNTDOWN
+// ================================================================
+function drawCount(){
+  ctx.fillStyle='rgba(7,7,26,.75)'; ctx.fillRect(0,0,SW,SH);
+
+  // パース背景も薄く
+  ctx.strokeStyle='rgba(24,36,72,.15)';
+  ctx.lineWidth=.5;
+  const lines=8;
+  for(let i=0;i<=lines;i++){
+    const bx=(SW/lines)*i;
+    ctx.beginPath();ctx.moveTo(bx,SH);ctx.lineTo(VP_X,VP_Y);ctx.stroke();
+  }
+
+  const sincebeat=(performance.now()-lastBeat)/beatMs;
+  const p=Math.max(0,1-sincebeat*3);
+  const scale=1+.07*p;
+  const gs=10+18*p;
+  document.getElementById('cnt-num').style.transform=`scale(${scale})`;
+  document.getElementById('cnt-num').style.textShadow=`0 0 ${gs}px rgba(100,180,255,${.5+.5*p})`;
+}
+
+// ================================================================
+//  DRAW — GAME
+// ================================================================
+function drawGame(){
+  const now = performance.now();
+  const bp  = .5+.5*Math.sin(now/220);
+
+  // ベース背景
+  ctx.fillStyle='rgba(7,7,26,.86)'; ctx.fillRect(0,0,SW,SH);
+
+  // コンボ段階で背景色がダイナミックに変わる（極端な色変化）
+  if(combo >= 30){
+    // 30コンボ：紫白・画面全体が輝く
+    ctx.fillStyle=`rgba(80,40,220,${.06+.03*bp})`; ctx.fillRect(0,0,SW,SH);
+    ctx.fillStyle=`rgba(200,180,255,${.04+.02*bp})`; ctx.fillRect(0,0,SW,SH);
+    const edge=ctx.createLinearGradient(0,0,SW,0);
+    edge.addColorStop(0,   `rgba(140,100,255,${.15+.1*bp})`);
+    edge.addColorStop(.2,  'rgba(140,100,255,0)');
+    edge.addColorStop(.8,  'rgba(140,100,255,0)');
+    edge.addColorStop(1,   `rgba(140,100,255,${.15+.1*bp})`);
+    ctx.fillStyle=edge; ctx.fillRect(0,0,SW,SH);
+    const edgeV=ctx.createLinearGradient(0,0,0,SH);
+    edgeV.addColorStop(0,  `rgba(120,80,255,${.08+.05*bp})`);
+    edgeV.addColorStop(.2, 'rgba(120,80,255,0)');
+    edgeV.addColorStop(.8, 'rgba(120,80,255,0)');
+    edgeV.addColorStop(1,  `rgba(80,40,220,${.06+.04*bp})`);
+    ctx.fillStyle=edgeV; ctx.fillRect(0,0,SW,SH);
+  } else if(combo >= 20){
+    // 20コンボ：オレンジ・赤系
+    ctx.fillStyle=`rgba(180,60,20,${.045+.02*bp})`; ctx.fillRect(0,0,SW,SH);
+    const edge=ctx.createLinearGradient(0,0,SW,0);
+    edge.addColorStop(0,  `rgba(220,80,30,${.08+.05*bp})`);
+    edge.addColorStop(.25,'rgba(220,80,30,0)');
+    edge.addColorStop(.75,'rgba(220,80,30,0)');
+    edge.addColorStop(1,  `rgba(220,80,30,${.08+.05*bp})`);
+    ctx.fillStyle=edge; ctx.fillRect(0,0,SW,SH);
+  } else if(combo >= 10){
+    // 10コンボ：黄・アンバー系
+    ctx.fillStyle=`rgba(140,100,10,${.035+.015*bp})`; ctx.fillRect(0,0,SW,SH);
+    const edge=ctx.createLinearGradient(0,0,SW,0);
+    edge.addColorStop(0,  `rgba(180,130,20,${.06+.03*bp})`);
+    edge.addColorStop(.25,'rgba(180,130,20,0)');
+    edge.addColorStop(.75,'rgba(180,130,20,0)');
+    edge.addColorStop(1,  `rgba(180,130,20,${.06+.03*bp})`);
+    ctx.fillStyle=edge; ctx.fillRect(0,0,SW,SH);
+  } else if(combo >= 5){
+    // 5コンボ：青・最初の予兆
+    ctx.fillStyle=`rgba(25,40,120,${.018+.008*bp})`; ctx.fillRect(0,0,SW,SH);
+  }
+
+  drawDepthLane();
+  drawJudgeLine();
+  drawEnemies();
+  drawRipples();
+  drawSparks();
+  drawEffects();
+  drawComboGlow();
+
+  // 画面下部にゲーム名（常時・小さく）
+  ctx.save();
+  ctx.globalAlpha = .18;
+  ctx.font='8px Courier New';
+  ctx.fillStyle='#aac0ee';
+  ctx.textAlign='center'; ctx.textBaseline='alphabetic';
+  ctx.fillText('TRIO PULSE', SW/2, SH - 118);
+  ctx.restore();
+}
+
+function drawDepthLane(){
+  // パース格子（薄く）
+  const sincebeat=(performance.now()-lastBeat)/beatMs;
+  const bp=Math.max(0,1-sincebeat*3);
+  const ci=Math.min(combo/25,1);
+
+  ctx.strokeStyle=`rgba(22,34,70,${.2+.06*bp+.06*ci})`;
+  ctx.lineWidth=.5;
+  const lines=8;
+  for(let i=0;i<=lines;i++){
+    const bx=(SW/lines)*i;
+    ctx.beginPath();ctx.moveTo(bx,SH);ctx.lineTo(VP_X,VP_Y);ctx.stroke();
+  }
+  for(let row=0;row<=6;row++){
+    const t=row/6;
+    const pos=depthPos(t);
+    const halfW=50*t+2;
+    ctx.beginPath();ctx.moveTo(pos.x-halfW,pos.y);ctx.lineTo(pos.x+halfW,pos.y);ctx.stroke();
+  }
+
+  // 奥行きレーン発光（三角形グラデ）
+  const lg=ctx.createLinearGradient(VP_X,VP_Y,JUDGE_X,JUDGE_Y);
+  lg.addColorStop(0,'rgba(58,143,255,0)');
+  lg.addColorStop(1,`rgba(58,143,255,${.04+.04*bp+.07*ci})`);
+  ctx.fillStyle=lg;
+  ctx.beginPath();
+  ctx.moveTo(VP_X-1,VP_Y);
+  ctx.lineTo(JUDGE_X-60,JUDGE_Y);
+  ctx.lineTo(JUDGE_X+60,JUDGE_Y);
+  ctx.lineTo(VP_X+1,VP_Y);
+  ctx.closePath(); ctx.fill();
+}
+
+function drawJudgeLine(){
+  const sincebeat=(performance.now()-lastBeat)/beatMs;
+  const p=Math.max(0,1-sincebeat*2.5);
+
+  // 判定ライン本体（拍で太く光る）
+  ctx.strokeStyle=`rgba(80,160,255,${.35+.55*p})`;
+  ctx.lineWidth=2+p*2.5;
+  ctx.beginPath();ctx.moveTo(JUDGE_X-90,JUDGE_Y);ctx.lineTo(JUDGE_X+90,JUDGE_Y);ctx.stroke();
+
+  // 左右の端が光る
+  ctx.strokeStyle=`rgba(120,200,255,${.2+.5*p})`;
+  ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(JUDGE_X-90,JUDGE_Y-4);ctx.lineTo(JUDGE_X-90,JUDGE_Y+4);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(JUDGE_X+90,JUDGE_Y-4);ctx.lineTo(JUDGE_X+90,JUDGE_Y+4);ctx.stroke();
+
+  // 中央マーカー（拍で強く脈動）
+  ctx.fillStyle=`rgba(120,200,255,${.6+.4*p})`;
+  ctx.beginPath();ctx.arc(JUDGE_X,JUDGE_Y,6+4*p,0,Math.PI*2);ctx.fill();
+
+  // 外リング（拍でサイズが変わる）
+  ctx.strokeStyle=`rgba(80,140,255,${.2+.4*p})`;
+  ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.arc(JUDGE_X,JUDGE_Y,20+10*p,0,Math.PI*2);ctx.stroke();
+
+  // 2重外リング（さらに外）
+  ctx.strokeStyle=`rgba(60,100,200,${.06+.15*p})`;
+  ctx.lineWidth=1;
+  ctx.beginPath();ctx.arc(JUDGE_X,JUDGE_Y,36+12*p,0,Math.PI*2);ctx.stroke();
+}
+
+function drawEnemies(){
+  const cfg = DIFF_CFG[diff];
+
+  // 遠い順に描画（近いものが手前に重なる）
+  const sorted = enemies.slice().sort((a,b)=>a.progress-b.progress);
+
+  sorted.forEach(e=>{
+    const t   = e.progress;
+    const pos = depthPos(t);
+    const sc  = depthScale(t);
+    const r   = BASE_RADIUS * sc;
+
+    // アイコンのalphaは薄くしすぎない（遠景でも0.55以上）
+    const iconAlpha   = 0.55 + 0.45*t;
+    // オーラ・ボーダーのalphaは距離で変える
+    const borderAlpha = 0.3  + 0.7*t;
+
+    // ルール色
+    const rc = e.rule==='win'  ? [58,143,255]
+             : e.rule==='draw' ? [240,160,60]
+             :                   [255,64,96];
+    const rcStr = `rgba(${rc[0]},${rc[1]},${rc[2]},`;
+
+    // 近景オーラ（t>.35から。手前で強烈に）
+    if(t > .35){
+      const auraT     = (t - .35) / .65;
+      const auraR     = r + 24*sc*Math.pow(auraT, 1.2);
+      const auraAlpha = .06 + .4*Math.pow(auraT, 1.5);
+      // 放射グラデ
+      const grad = ctx.createRadialGradient(pos.x,pos.y,r*.5,pos.x,pos.y,auraR);
+      grad.addColorStop(0, rcStr + auraAlpha + ')');
+      grad.addColorStop(1, rcStr + '0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath(); ctx.arc(pos.x, pos.y, auraR, 0, Math.PI*2); ctx.fill();
+    }
+
+    // ボーダー（遠景でも輪郭が見える）
+    ctx.save();
+    ctx.globalAlpha = borderAlpha;
+    ctx.strokeStyle = rcStr + (.45 + .55*t) + ')';
+    ctx.lineWidth   = Math.max(1.5, 2*sc + t*2); // 近景で太く
+    ctx.beginPath(); ctx.arc(pos.x, pos.y, r + 4*sc, 0, Math.PI*2); ctx.stroke();
+    ctx.restore();
+
+    // SVGアイコン描画（判別優先・薄くしない）
+    ctx.save();
+    const iconSize = Math.max(28, r * 2.6);
+    drawHandIcon(e.hand, pos.x, pos.y, iconSize, rc, iconAlpha);
+    ctx.restore();
+
+    // ── 特殊条件ラベル（DRAW・LOSEのみ。アイコン上寄りに表示）──
+    if((diff==='hard'||diff==='expert') && e.rule !== 'win' && t > .2){
+      const rl       = e.rule==='draw' ? 'DRAW' : 'LOSE';
+      const rlAlpha  = Math.min(1, (t - .2) / .4);
+      const rlSize   = Math.max(13, 13*sc);
+      const rlY      = pos.y - r * 0.55;
+
+      ctx.save();
+      ctx.globalAlpha = rlAlpha;
+      ctx.font = `bold ${rlSize}px Courier New`;
+      const tw  = ctx.measureText(rl).width;
+      // 余白を上下左右均等に（水平padding=8, 垂直padding=5）
+      const padH = 8, padV = 5;
+      const ph   = rlSize + padV * 2;
+      const pw   = tw + padH * 2;
+      const px   = pos.x - pw/2;
+      const py   = rlY - ph/2;
+      const cr   = 4;
+
+      // 角丸パネル（濃い暗色）
+      const panelGrad = ctx.createLinearGradient(px, py, px, py+ph);
+      panelGrad.addColorStop(0, 'rgba(10,15,40,0.88)');
+      panelGrad.addColorStop(1, 'rgba(10,15,40,0.82)');
+      ctx.fillStyle = panelGrad;
+      ctx.beginPath();
+      ctx.moveTo(px+cr,py);
+      ctx.lineTo(px+pw-cr,py); ctx.arcTo(px+pw,py,   px+pw,py+cr,   cr);
+      ctx.lineTo(px+pw,py+ph-cr); ctx.arcTo(px+pw,py+ph, px+pw-cr,py+ph, cr);
+      ctx.lineTo(px+cr,py+ph); ctx.arcTo(px,py+ph,   px,py+ph-cr,   cr);
+      ctx.lineTo(px,py+cr); ctx.arcTo(px,py,       px+cr,py,       cr);
+      ctx.closePath(); ctx.fill();
+
+      // 縁取り（ルール色）
+      ctx.strokeStyle = rcStr + '0.7)';
+      ctx.lineWidth   = 1.5;
+      ctx.stroke();
+
+      // テキスト（白・中央揃え）
+      ctx.fillStyle    = 'rgba(255,255,255,1)';
+      ctx.textAlign    = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(rl, pos.x, rlY);
+      ctx.restore();
+    }
+
+    // EASYヒント（アイコン下・t>.4から）
+    if(cfg.hint && t > .4){
+      const hh       = e.rule==='win' ? WINS[e.hand] : e.rule==='draw' ? e.hand : LOSES[e.hand];
+      const hintAlpha = Math.min(1, (t - .4) / .4);
+      const hintSize  = Math.max(10, 11*sc);
+      ctx.save();
+      ctx.globalAlpha = hintAlpha * .9;
+      ctx.font        = `${hintSize}px Courier New`;
+      ctx.fillStyle   = 'rgba(120,190,255,1)';
+      ctx.textAlign   = 'center';
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillText(LABEL[hh], pos.x, pos.y + r + Math.max(14, 16*sc));
+      ctx.restore();
+    }
+  });
+}
+
+function drawRipples(){
+  ripples.forEach(r=>{
+    ctx.save(); ctx.globalAlpha=r.life*.65;
+    ctx.strokeStyle=r.color; ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.arc(r.x,r.y,r.r,0,Math.PI*2);ctx.stroke();
+    ctx.restore();
+    r.r+=(90-r.r)*.12; r.life-=.04;
+  });
+  ripples=ripples.filter(r=>r.life>0);
+}
+function drawSparks(){
+  sparks.forEach(s=>{
+    ctx.save(); ctx.globalAlpha=s.life;
+    ctx.fillStyle=s.color;
+    ctx.beginPath();ctx.arc(s.x,s.y,s.size*s.life,0,Math.PI*2);ctx.fill();
+    ctx.restore();
+    s.x+=s.vx; s.y+=s.vy; s.vy+=.06; s.life-=.028;
+  });
+  sparks=sparks.filter(s=>s.life>0);
+}
+function drawEffects(){
+  effects.forEach(ef=>{
+    ctx.save(); ctx.globalAlpha=ef.life;
+    // PERFECTは特に大きく
+    const fsize = ef.text === 'PERFECT' ? 18 : 14;
+    ctx.font=`bold ${fsize}px Courier New`;
+    ctx.textAlign='center'; ctx.fillStyle=ef.color;
+    if(ef.text === 'PERFECT'){
+      ctx.shadowColor=ef.color; ctx.shadowBlur=8*ef.life;
+    }
+    ctx.fillText(ef.text,ef.x,ef.y);
+    ctx.shadowBlur=0;
+    ctx.restore();
+    ef.y+=ef.vy; ef.life-=.022;
+  });
+  effects=effects.filter(e=>e.life>0);
+}
+function drawComboGlow(){
+  if(combo < 5) return;
+  const now = performance.now();
+  const p   = .5+.5*Math.sin(now/180);
+
+  if(combo >= 30){
+    // 30コンボ：判定ライン全体が強く輝く
+    const g = ctx.createRadialGradient(JUDGE_X,JUDGE_Y,0,JUDGE_X,JUDGE_Y,80);
+    g.addColorStop(0, `rgba(180,220,255,${.12*p})`);
+    g.addColorStop(1, 'rgba(58,143,255,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(JUDGE_X,JUDGE_Y,80,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle=`rgba(180,220,255,${.15+.2*p})`;
+    ctx.lineWidth=3; ctx.beginPath();ctx.arc(JUDGE_X,JUDGE_Y,36+14*p,0,Math.PI*2);ctx.stroke();
+    ctx.strokeStyle=`rgba(120,180,255,${.08+.12*p})`;
+    ctx.lineWidth=2; ctx.beginPath();ctx.arc(JUDGE_X,JUDGE_Y,56+16*p,0,Math.PI*2);ctx.stroke();
+  } else if(combo >= 20){
+    // 20コンボ：オレンジ系のグロー
+    ctx.strokeStyle=`rgba(255,180,60,${.1+.18*p})`;
+    ctx.lineWidth=2.5; ctx.beginPath();ctx.arc(JUDGE_X,JUDGE_Y,32+12*p,0,Math.PI*2);ctx.stroke();
+    ctx.strokeStyle=`rgba(255,140,40,${.05+.08*p})`;
+    ctx.lineWidth=1.5; ctx.beginPath();ctx.arc(JUDGE_X,JUDGE_Y,50+14*p,0,Math.PI*2);ctx.stroke();
+  } else if(combo >= 10){
+    // 10コンボ：青系のグロー
+    ctx.strokeStyle=`rgba(100,180,255,${.08+.14*p})`;
+    ctx.lineWidth=2; ctx.beginPath();ctx.arc(JUDGE_X,JUDGE_Y,30+10*p,0,Math.PI*2);ctx.stroke();
+  } else {
+    // 5コンボ：控えめな発光
+    ctx.strokeStyle=`rgba(80,140,220,${.04+.08*p})`;
+    ctx.lineWidth=1.5; ctx.beginPath();ctx.arc(JUDGE_X,JUDGE_Y,26+8*p,0,Math.PI*2);ctx.stroke();
+  }
+}
+
+// ================================================================
+//  MAIN LOOP
+// ================================================================
+function loop(){
+  if(mode==='title')  drawTitle();
+  else if(mode==='count')  drawCount();
+  else if(mode==='play')   drawGame();
+  else if(mode==='over')   drawGameOver();
+  else if(mode==='secret') drawSecretClear();
+  requestAnimationFrame(loop);
+}
+
+// 999コンボ裏クリア画面
+function drawSecretClear(){
+  const now = performance.now();
+  const p   = .5+.5*Math.sin(now/300);
+  // 虹色背景
+  const hue = (now/30) % 360;
+  ctx.fillStyle=`hsla(${hue},60%,8%,.92)`; ctx.fillRect(0,0,SW,SH);
+  // 輝くオーラ
+  const g=ctx.createRadialGradient(SW/2,SH/2,0,SW/2,SH/2,260);
+  g.addColorStop(0,`hsla(${hue},80%,60%,${.15*p})`);
+  g.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=g; ctx.fillRect(0,0,SW,SH);
+
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  // SPECIAL CLEAR
+  ctx.font=`bold ${32+4*p}px Courier New`;
+  ctx.fillStyle=`hsl(${hue},90%,75%)`;
+  ctx.shadowColor=`hsl(${hue},90%,60%)`; ctx.shadowBlur=30*p;
+  ctx.fillText('SPECIAL CLEAR', SW/2, SH/2 - 90);
+  ctx.shadowBlur=0;
+  // 999
+  ctx.font=`bold ${60+8*p}px Courier New`;
+  ctx.fillStyle=`hsl(${(hue+120)%360},90%,80%)`;
+  ctx.fillText('×999', SW/2, SH/2 - 20);
+  // THANK YOU
+  ctx.font='14px Courier New';
+  ctx.fillStyle=`rgba(200,220,255,${.7+.3*p})`;
+  ctx.fillText('THANK YOU FOR PLAYING', SW/2, SH/2 + 50);
+  ctx.font='11px Courier New';
+  ctx.fillStyle='rgba(100,140,200,.6)';
+  ctx.fillText('You are a true Trio Pulse master.', SW/2, SH/2 + 76);
+  // スコア
+  ctx.font='11px Courier New'; ctx.fillStyle='#445566';
+  ctx.fillText('SCORE', SW/2, SH/2 + 114);
+  ctx.font='bold 22px Courier New'; ctx.fillStyle='#aac0ee';
+  ctx.fillText(String(score).padStart(8,'0'), SW/2, SH/2 + 138);
+  // 操作案内
+  ctx.font='10px Courier New'; ctx.fillStyle=`rgba(80,120,180,${.5+.5*p})`;
+  ctx.fillText('Enter: RETRY  /  Esc: TITLE', SW/2, SH - 30);
+}
+
+function drawGameOver(){
+  ctx.fillStyle='rgba(4,4,12,.93)'; ctx.fillRect(0,0,SW,SH);
+
+  // GAME OVER（大きく・発光）
+  const now = performance.now();
+  const p   = .5+.5*Math.sin(now/400);
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.font=`bold ${44+4*p}px Courier New`;
+  ctx.fillStyle='#ff4060';
+  ctx.shadowColor='#ff2040'; ctx.shadowBlur=28+16*p;
+  ctx.fillText('GAME OVER', SW/2, SH/2 - 80);
+  ctx.shadowBlur=0;
+
+  // スコア
+  ctx.font='13px Courier New';
+  ctx.fillStyle='#445566';
+  ctx.fillText('SCORE', SW/2, SH/2 - 22);
+  ctx.font='bold 30px Courier New';
+  ctx.fillStyle='#aac0ee';
+  ctx.fillText(String(score).padStart(8,'0'), SW/2, SH/2 + 14);
+
+  // ハイスコア
+  ctx.font='12px Courier New';
+  ctx.fillStyle= score >= hiScore ? '#ffcc44' : '#334455';
+  const hiLabel = score >= hiScore ? '★ NEW HI-SCORE ★' : `HI  ${String(hiScore).padStart(8,'0')}`;
+  ctx.fillText(hiLabel, SW/2, SH/2 + 46);
+
+  // ベストコンボ
+  ctx.font='12px Courier New';
+  ctx.fillStyle='#334455';
+  ctx.fillText(`BEST COMBO  ×${maxCombo}`, SW/2, SH/2 + 70);
+
+  // ゲーム名
+  ctx.font='10px Courier New';
+  ctx.fillStyle='#1a2240';
+  ctx.fillText('TRIO PULSE', SW/2, SH - 16);
+}
+
+// Canvas角丸矩形ヘルパー
+function roundRect(x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.lineTo(x+w-r,y); ctx.arcTo(x+w,y,   x+w,y+r,   r);
+  ctx.lineTo(x+w,y+h-r); ctx.arcTo(x+w,y+h, x+w-r,y+h, r);
+  ctx.lineTo(x+r,y+h); ctx.arcTo(x,y+h,   x,y+h-r,   r);
+  ctx.lineTo(x,y+r); ctx.arcTo(x,y,       x+r,y,     r);
+  ctx.closePath();
+}
+
+// リトライ・タイトルへ戻る（ゲームオーバー・裏クリア共通）
+document.addEventListener('keydown', e=>{
+  if(mode === 'over' || mode === 'secret'){
+    if(e.key === 'Enter' || ['a','s','d'].includes(e.key.toLowerCase())){
+      hideOverUI();
+      const cfg = DIFF_CFG[diff];
+      startPlayFresh(60000/cfg.bpm);
+    }
+    if(e.key === 'Escape'){
+      hideOverUI();
+      goTitle();
+    }
+  }
+});
+function goTitle(){
+  // ハイスコアをタイトルへ反映
+  if(score > hiScore) hiScore = score;
+  const hsEl = document.getElementById('hs-val');
+  const hsWrap = document.getElementById('title-hiscore');
+  if(hiScore > 0){
+    hsEl.textContent   = String(hiScore).padStart(8,'0');
+    hsWrap.style.display = 'block';
+  }
+  // ゲームUIを隠す
+  document.getElementById('hud').style.display='none';
+  document.getElementById('combo-center').style.display='none';
+  document.getElementById('touch-bar').style.display='none';
+  document.getElementById('hp-bar-wrap').style.display='none';
+  // タイトルへ
+  mode = 'title';
+  document.getElementById('s-title').classList.remove('off');
+}
+
+// ================================================================
+//  TITLE KEYBOARD NAV
+// ================================================================
+const DIFF_KEYS = ['easy','normal','hard','expert'];
+let   diffIdx   = 1; // 初期NORMAL
+
+function selectDiff(idx){
+  diffIdx = (idx + DIFF_KEYS.length) % DIFF_KEYS.length;
+  diff    = DIFF_KEYS[diffIdx];
+  document.querySelectorAll('.db').forEach(b=>{
+    b.classList.toggle('sel', b.dataset.d === diff);
+  });
+}
+
+// タイトル時のキー操作
+document.addEventListener('keydown', e=>{
+  if(mode !== 'title') return;
+  if(e.key === 'ArrowUp')   { selectDiff(diffIdx - 1); return; }
+  if(e.key === 'ArrowDown') { selectDiff(diffIdx + 1); return; }
+  if(e.key === 'Enter')     { document.getElementById('btn-start').click(); return; }
+});
+
+// 難易度ボタンのクリック
+document.querySelectorAll('.db').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    selectDiff(parseInt(btn.dataset.i));
+  });
+});
+
+// プレイ中タイトルへ戻るボタン
+document.getElementById('btn-to-title').addEventListener('click',()=>{
+  stopBeat();
+  goTitle();
+});
+
+// ================================================================
+//  GAME OVER UI BUTTONS
+// ================================================================
+document.getElementById('btn-retry').addEventListener('click',()=>{
+  hideOverUI();
+  const cfg = DIFF_CFG[diff];
+  startPlayFresh(60000/cfg.bpm);
+});
+document.getElementById('btn-title').addEventListener('click',()=>{
+  hideOverUI();
+  goTitle();
+});
+
+// ゲームオーバー時のキー操作
+document.addEventListener('keydown', e=>{
+  if(mode !== 'over') return;
+  if(e.key === 'Enter' || ['a','s','d'].includes(e.key.toLowerCase())){
+    hideOverUI();
+    const cfg = DIFF_CFG[diff];
+    startPlayFresh(60000/cfg.bpm);
+  }
+  if(e.key === 'Escape'){
+    hideOverUI();
+    goTitle();
+  }
+});
+
+// タッチバーはゲームオーバー時にリトライ
+document.querySelectorAll('.tb').forEach(btn=>{
+  btn.addEventListener('pointerdown', e=>{
+    if(mode !== 'over') return;
+    e.preventDefault();
+    hideOverUI();
+    const cfg = DIFF_CFG[diff];
+    startPlayFresh(60000/cfg.bpm);
+  });
+});
+
+function showOverUI(){ document.getElementById('over-ui').style.display='flex'; }
+function hideOverUI(){ document.getElementById('over-ui').style.display='none'; }
+
+// ================================================================
+//  START FLOW
+// ================================================================
+
+document.getElementById('btn-start').addEventListener('click',()=>{
+  initAudio();
+  mode='count';
+  document.getElementById('s-title').classList.add('off');
+  document.getElementById('s-count').classList.remove('off');
+  document.getElementById('hp-bar-wrap').style.display='none'; // リセット（再開時用）
+
+  const cfg = DIFF_CFG[diff];
+  const cMs = 60000/cfg.bpm;
+  let n=4;
+  const el=document.getElementById('cnt-num');
+  el.textContent=n;
+  lastBeat=performance.now();
+  sndMetro(true);
+
+  const cd=setInterval(()=>{
+    lastBeat=performance.now();
+    n--;
+    if(n<=0){
+      clearInterval(cd);
+      // 空白なしで直接本編へ
+      document.getElementById('s-count').classList.add('off');
+      document.getElementById('hud').style.display='flex';
+      document.getElementById('combo-center').style.display='flex';
+      document.getElementById('touch-bar').style.display='flex';
+      document.getElementById('h-diff').textContent=cfg.label;
+      startPlay(cMs);
+    } else {
+      el.textContent=n;
+      sndMetro(n%4===0);
+    }
+  }, cMs);
+});
+
+function startPlay(ms){
+  mode=   'play';
+  score=0; combo=0; maxCombo=0; beat=0;
+  hp = HP_MAX * 0.33;
+  burstCount=0; burstCooldown=0; // 連拍リセット
+  enemies=[]; effects=[]; sparks=[]; ripples=[];
+  updateHUD(); updateComboUI();
+  document.getElementById('hp-bar-wrap').style.display='block';
+  startBeat(ms);
+}
+
+// ゲームオーバーからリトライ
+function startPlayFresh(ms){
+  document.getElementById('hud').style.display='flex';
+  document.getElementById('combo-center').style.display='flex';
+  document.getElementById('touch-bar').style.display='flex';
+  document.getElementById('h-diff').textContent=DIFF_CFG[diff].label;
+  startPlay(ms);
+}
+
+// ================================================================
+//  MOBILE SCALING
+// ================================================================
+function scaleStage(){
+  const stage  = document.getElementById('stage');
+  // モバイルのURL barを考慮し、縦は90%を使用
+  const scaleX = window.innerWidth  / 400;
+  const scaleY = (window.innerHeight * 0.97) / 680;
+  const scale  = Math.min(scaleX, scaleY, 1); // 拡大はしない・縮小のみ
+  stage.style.transform = `scale(${scale})`;
+}
+scaleStage();
+window.addEventListener('resize', scaleStage);
+
+// ================================================================
+//  BOOT
+// ================================================================
+loop();
+</script>
+</body>
+</html>
