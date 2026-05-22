@@ -137,9 +137,12 @@ html, body {
 #hud {
   position:absolute; top:0; left:0; right:0; height:56px;
   display:none; align-items:center; justify-content:space-between;
-  padding:0 16px; z-index:5; pointer-events:none;
+  padding:0 16px; z-index:5;
   border-bottom:1px solid rgba(26,34,64,.7);
+  pointer-events:none; /* HUD全体はクリック透過 */
 }
+/* タイトルボタンだけクリック有効 */
+#btn-to-title { pointer-events:auto; }
 .hb { display:flex; flex-direction:column; gap:2px; }
 .hl { font-size:8px; letter-spacing:3px; color:var(--muted2); }
 .hv { font-size:16px; color:#aac0ee; letter-spacing:2px; }
@@ -708,12 +711,48 @@ function handleInput(hand){
   }
 }
 
-// キーボード
+// ================================================================
+//  KEYBOARD — 全keydownを1箇所で管理（干渉防止）
+// ================================================================
 const KMAP = {a:'goo',s:'choki',d:'paa'};
-document.addEventListener('keydown',e=>{
+document.addEventListener('keydown', e=>{
   if(e.repeat) return;
-  const h = KMAP[e.key.toLowerCase()];
-  if(h) handleInput(h);
+  const key = e.key.toLowerCase();
+
+  // ── タイトル画面 ──
+  if(mode === 'title'){
+    if(e.key === 'ArrowUp')   { selectDiff(diffIdx - 1); return; }
+    if(e.key === 'ArrowDown') { selectDiff(diffIdx + 1); return; }
+    if(e.key === 'Enter')     { document.getElementById('btn-start').click(); return; }
+    // 隠しギミック（A/S/D）
+    const hSecret = KMAP[key];
+    if(hSecret){
+      initAudio();
+      const icon = document.querySelector(`.tg[data-h="${hSecret}"]`);
+      fireSecret(hSecret, icon);
+    }
+    return;
+  }
+
+  // ── プレイ画面 ──
+  if(mode === 'play'){
+    const h = KMAP[key];
+    if(h) handleInput(h);
+    return;
+  }
+
+  // ── ゲームオーバー・裏クリア画面 ──
+  if(mode === 'over' || mode === 'secret'){
+    if(e.key === 'Enter'){
+      hideOverUI();
+      startPlayFresh(60000/DIFF_CFG[diff].bpm);
+    }
+    if(e.key === 'Escape'){
+      hideOverUI();
+      goTitle();
+    }
+    return;
+  }
 });
 
 // タッチボタン（play・over・secretを1つのハンドラで処理）
@@ -740,17 +779,6 @@ document.querySelectorAll('.tg').forEach(icon=>{
     initAudio();
     fireSecret(icon.dataset.h, icon);
   });
-});
-
-// タイトル隠しギミック（A/S/Dキー） ← NEW
-document.addEventListener('keydown',e=>{
-  if(mode!=='title') return;
-  const h = KMAP[e.key.toLowerCase()];
-  if(!h) return;
-  initAudio();
-  // 対応アイコンを取得して発光させる
-  const icon = document.querySelector(`.tg[data-h="${h}"]`);
-  fireSecret(h, icon);
 });
 
 function fireSecret(hand, iconEl){
@@ -1449,20 +1477,7 @@ function roundRect(x,y,w,h,r){
   ctx.closePath();
 }
 
-// リトライ・タイトルへ戻る（ゲームオーバー・裏クリア共通）
-document.addEventListener('keydown', e=>{
-  if(mode === 'over' || mode === 'secret'){
-    if(e.key === 'Enter' || ['a','s','d'].includes(e.key.toLowerCase())){
-      hideOverUI();
-      const cfg = DIFF_CFG[diff];
-      startPlayFresh(60000/cfg.bpm);
-    }
-    if(e.key === 'Escape'){
-      hideOverUI();
-      goTitle();
-    }
-  }
-});
+
 function goTitle(){
   // ハイスコアをタイトルへ反映
   if(score > hiScore) hiScore = score;
@@ -1496,14 +1511,6 @@ function selectDiff(idx){
   });
 }
 
-// タイトル時のキー操作
-document.addEventListener('keydown', e=>{
-  if(mode !== 'title') return;
-  if(e.key === 'ArrowUp')   { selectDiff(diffIdx - 1); return; }
-  if(e.key === 'ArrowDown') { selectDiff(diffIdx + 1); return; }
-  if(e.key === 'Enter')     { document.getElementById('btn-start').click(); return; }
-});
-
 // 難易度ボタンのクリック
 document.querySelectorAll('.db').forEach(btn=>{
   btn.addEventListener('click',()=>{
@@ -1528,20 +1535,6 @@ document.getElementById('btn-retry').addEventListener('click',()=>{
 document.getElementById('btn-title').addEventListener('click',()=>{
   hideOverUI();
   goTitle();
-});
-
-// ゲームオーバー時のキー操作
-document.addEventListener('keydown', e=>{
-  if(mode !== 'over') return;
-  if(e.key === 'Enter' || ['a','s','d'].includes(e.key.toLowerCase())){
-    hideOverUI();
-    const cfg = DIFF_CFG[diff];
-    startPlayFresh(60000/cfg.bpm);
-  }
-  if(e.key === 'Escape'){
-    hideOverUI();
-    goTitle();
-  }
 });
 
 // タッチバーはゲームオーバー時にリトライ
